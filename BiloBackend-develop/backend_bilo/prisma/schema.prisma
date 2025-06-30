@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id          Int     @id @default(autoincrement())
+  nombre_usuario      String  @db.VarChar(50) @unique
+  email       String  @unique
+  contraseña  String
+}
+
+model Cliente {
+  id               Int       @id @default(autoincrement())
+  codigo           String    @db.VarChar(100) @unique
+  cuit             String    @db.VarChar(13) @unique
+  tipoDocumento    TipoDocumento @relation(fields: [idTipoDocumento], references: [id])
+  idTipoDocumento  Int
+  dni              String    @db.VarChar(20) @unique
+  nombre           String    @db.VarChar(40)
+  apellido         String    @db.VarChar(30)
+  condicionIva     CondicionIva @relation(fields: [idCondicionIva], references: [id])
+  idCondicionIva   Int
+  telefono         String    @db.VarChar(20)
+  email            String    @db.VarChar(50)
+  habilitaCtacte   Boolean   @default(false)
+  direccion        Direccion @relation(fields: [idDireccion], references: [id])
+  idDireccion      Int
+  estado   Boolean   @default(true)
+
+  @@map("cliente")
+}
+
+model Direccion {
+  id            Int       @id @default(autoincrement())
+  provincia     Provincia @relation(fields: [idProvincia], references: [id])
+  idProvincia   Int
+  localidad     Localidad @relation(fields: [idLocalidad], references: [id])
+  idLocalidad   Int
+  barrio        String?   @db.VarChar(20)
+  calle         String    @db.VarChar(30)
+  numeroCalle   String    @db.VarChar(10)
+  piso          String?   @db.VarChar(10)
+  departamento  String?   @db.VarChar(10)
+  clientes      Cliente[]
+  empresaConfig EmpresaConfig[]
+
+  @@map("direccion")
+}
+
+model CondicionIva {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @db.VarChar(50) @unique
+  clientes      Cliente[]
+  contabilidadConfig ContabilidadConfig[]
+
+  @@map("condicion_iva")
+}
+
+model TipoDocumento {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @db.VarChar(50) @unique
+  clientes      Cliente[]
+
+  @@map("tipo_documento")
+}
+
+model Provincia {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @db.VarChar(100) @unique
+  localidades   Localidad[]
+  direcciones   Direccion[]
+
+  @@map("provincia")
+}
+
+model Localidad {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @db.VarChar(100)
+  provincia     Provincia @relation(fields: [idProvincia], references: [id])
+  idProvincia   Int
+  direcciones   Direccion[]
+
+  @@unique([idProvincia, nombre])
+
+  @@map("localidad")
+}
+
+model Articulo {
+  id               Int       @id @default(autoincrement())
+  codigo           String    @unique @db.VarChar(30)
+  codigo_barra     String    @db.VarChar(30)
+  nombre           String    @db.VarChar(50)
+  descripcion      String?   @db.VarChar(200)
+  produccionPropia Boolean   @default(true)
+  pesable          Boolean   @default(true)
+  estado   Boolean   @default(true)
+}
+
+model EmpresaConfig {
+  id              Int       @id @default(autoincrement())
+  razonSocial    String    @db.VarChar(100) @default("")
+  cuit            String    @db.VarChar(13) @default("")
+  telefono        String    @db.VarChar(20) @default("")
+  email           String    @db.VarChar(50) @default("")
+  idDireccion     Int
+  direccion       Direccion @relation(fields: [idDireccion], references: [id])
+  
+  @@map("empresa_config")
+}
+
+model ContabilidadConfig {
+  id              Int       @id @default(autoincrement())
+  idCondicionIva  Int
+  condicionIva    CondicionIva @relation(fields: [idCondicionIva], references: [id])
+  puntoDeVenta  Int
+  
+  @@map("contabilidad_config")
+}

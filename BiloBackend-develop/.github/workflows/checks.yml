@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]      # se ejecuta en cada push a develop
+  pull_request:
+    branches: [develop]      # y en cada PR hacia develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # --- Servicio de base de datos para Prisma / tests -------------
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bilo
+          POSTGRES_PASSWORD: bilo
+          POSTGRES_DB: bilo
+        ports: [5432:5432]
+        # espera a que la DB esté lista antes de continuar
+        options: >-
+          --health-cmd="pg_isready -U bilo"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+    # 1) Clonar repo
+    - uses: actions/checkout@v4
+
+    # 2) Configurar Node – usa la misma versión que en tu PC
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    # 3) Definir variable de conexión para Prisma (usa el servicio Postgres)
+    - name: Set DATABASE_URL
+      run: echo "DATABASE_URL=postgresql://bilo:bilo@localhost:5432/bilo" >> $GITHUB_ENV
+
+    # 4) Instalar dependencias
+    - name: Install dependencies
+      run: npm ci
+      working-directory: backend_bilo    # <─ ¡ruta correcta!
+
+    # 5) Generar cliente Prisma
+    - name: Generate Prisma Client
+      run: npx prisma generate
+      working-directory: backend_bilo
+
+    # 6) (Opcional) Aplicar migraciones a la DB de CI
+    - name: Migrate DB schema
+      run: npx prisma migrate deploy
+      working-directory: backend_bilo
+
+    # 7) Ejecutar pruebas / linters / build
+    #- name: Run tests
+    #  run: npm test --if-present
+    #  working-directory: backend_bilo
+
+    # 8) (Opcional) Compilar el proyecto para asegurarse de que buildea
+    - name: Build project
+      run: npm run build
+      working-directory: backend_bilo

@@ -1,0 +1,73 @@
+name: Version Tagging
+
+on:
+  push:
+    branches:
+      - main
+      - release
+      - develop
+
+jobs:
+  tag-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Git config
+        run: |
+          git config user.name "MirandaGonzalo"
+          git config user.email "MirandaGonzalo@users.noreply.github.com"
+
+      - name: Autenticación remota con token
+        env:
+          TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+        run: git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Get last tag
+        id: get_tag
+        run: |
+          tag=$(git tag --sort=-v:refname | head -n 1)
+          echo "Last tag: $tag"
+          echo "tag=${tag:-0.0.0}" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: version
+        run: |
+          OLD_VERSION=${{ steps.get_tag.outputs.tag }}
+          IFS='.' read -r major minor patch <<< "$OLD_VERSION"
+
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [[ "${GITHUB_REF##*/}" == "release" ]]; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+
+          NEW_VERSION="$major.$minor.$patch"
+          echo "New version: $NEW_VERSION"
+          echo "new_tag=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push new tag
+        env:
+          TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+        run: |
+          TAG=${{ steps.version.outputs.new_tag }}
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "El tag $TAG ya existe. No se creará de nuevo."
+          else
+            git tag $TAG
+            git remote set-url origin https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git
+            git push origin $TAG
+          fi
